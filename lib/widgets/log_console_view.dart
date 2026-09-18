@@ -53,7 +53,13 @@ class _LogConsoleViewState extends State<LogConsoleView> {
     final query = widget.state.logFilter.toLowerCase();
     return allLogs.where((log) {
       if (_activeFilter == 'flutter' && log.source != 'flutter') return false;
-      if (_activeFilter == 'system' && log.source != 'system') return false;
+      if (_activeFilter == 'build' && log.source != 'build') return false;
+      if (_activeFilter == 'system' &&
+          log.source != 'system' &&
+          log.source != 'adb' &&
+          log.source != 'bridge') {
+        return false;
+      }
       if (_activeFilter == 'errors' && log.level != LogLevel.error) return false;
 
       if (query.isNotEmpty) {
@@ -65,10 +71,16 @@ class _LogConsoleViewState extends State<LogConsoleView> {
 
   @override
   Widget build(BuildContext context) {
-    final activeLogs = widget.state.activeSession?.logs;
-    final sourceLogs = (activeLogs != null && activeLogs.isNotEmpty)
-        ? activeLogs
-        : widget.state.logs;
+    final selectedId = widget.state.selectedDeviceId;
+    final isSystemView = selectedId == null;
+
+    final List<LogEntry> sourceLogs;
+    if (isSystemView) {
+      sourceLogs = widget.state.logs;
+    } else {
+      sourceLogs = widget.state.activeSession?.logs ?? [];
+    }
+
     final logs = _filterLogs(sourceLogs);
     final debugUri = widget.state.debugUri;
 
@@ -89,9 +101,9 @@ class _LogConsoleViewState extends State<LogConsoleView> {
                 const Icon(Icons.terminal_rounded, size: 18, color: AppTheme.primary),
                 const SizedBox(width: 8),
                 Text(
-                  widget.state.selectedDeviceId != null
-                      ? 'Console & Logs (${widget.state.selectedDeviceId})'
-                      : 'Console & Logs',
+                  selectedId != null
+                      ? 'Console & Logs ($selectedId)'
+                      : 'Console & Logs (System & Builds)',
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -121,6 +133,8 @@ class _LogConsoleViewState extends State<LogConsoleView> {
                 _buildFilterChip('all', 'All'),
                 const SizedBox(width: 4),
                 _buildFilterChip('flutter', 'Flutter'),
+                const SizedBox(width: 4),
+                _buildFilterChip('build', 'Build'),
                 const SizedBox(width: 4),
                 _buildFilterChip('system', 'System'),
                 const SizedBox(width: 4),
@@ -193,12 +207,14 @@ class _LogConsoleViewState extends State<LogConsoleView> {
 
                 // Clear console
                 Tooltip(
-                  message: 'Clear console logs',
+                  message: selectedId != null
+                      ? 'Clear logs for $selectedId'
+                      : 'Clear system & build logs',
                   child: IconButton(
                     icon: const Icon(Icons.delete_outline_rounded, size: 18),
                     visualDensity: VisualDensity.compact,
                     color: AppTheme.textSecondary,
-                    onPressed: () => widget.state.clearLogs(),
+                    onPressed: () => widget.state.clearLogs(deviceId: selectedId),
                   ),
                 ),
               ],
@@ -238,11 +254,13 @@ class _LogConsoleViewState extends State<LogConsoleView> {
           // Console Log Lines
           Expanded(
             child: logs.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'No logs to display.\nStart an application or execute an ADB action.',
+                      selectedId != null
+                          ? 'No logs recorded for $selectedId yet.\nClick "Run App" above to launch on this device.'
+                          : 'No system or build logs recorded yet.\nRun an APK build or execute an ADB tool action.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, height: 1.5),
                     ),
                   )
                 : SelectionArea(

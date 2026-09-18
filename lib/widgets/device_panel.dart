@@ -4,11 +4,68 @@ import '../theme/app_theme.dart';
 import 'adb_tools_card.dart';
 import 'avd_item_card.dart';
 import 'connected_devices_card.dart';
+import 'create_avd_dialog.dart';
 
 class DevicePanel extends StatelessWidget {
   final AppState state;
 
   const DevicePanel({super.key, required this.state});
+
+  void _openCreateAvdDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => CreateAvdDialog(state: state),
+    );
+  }
+
+  void _confirmDeleteAvd(BuildContext context, String avdName) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppTheme.border),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.delete_forever_rounded, color: AppTheme.error, size: 20),
+            ),
+            const SizedBox(width: 10),
+            const Text('Delete Virtual Device?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to permanently delete "$avdName"? This will erase all user data on this virtual device.',
+          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              state.deleteAvd(avdName);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.error,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete AVD'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,12 +126,29 @@ class DevicePanel extends StatelessWidget {
                           ),
                         ],
                       ),
-                      IconButton(
-                        onPressed: () => state.refreshDevices(),
-                        icon: const Icon(Icons.refresh_rounded, size: 18),
-                        tooltip: 'Scan AVDs (emulator -list-avds)',
-                        visualDensity: VisualDensity.compact,
-                        color: AppTheme.textSecondary,
+                      Row(
+                        children: [
+                          FilledButton.icon(
+                            onPressed: () => _openCreateAvdDialog(context),
+                            icon: const Icon(Icons.add_rounded, size: 14),
+                            label: const Text('New AVD', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTheme.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              visualDensity: VisualDensity.compact,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            onPressed: () => state.refreshDevices(),
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                            tooltip: 'Scan AVDs (emulator -list-avds)',
+                            visualDensity: VisualDensity.compact,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -82,12 +156,38 @@ class DevicePanel extends StatelessWidget {
                   if (state.avds.isEmpty)
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: const Center(
-                        child: Text(
-                          'No Android Virtual Devices found in SDK path.',
-                          style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                        ),
+                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceMuted,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.phone_android_rounded, size: 28, color: AppTheme.textMuted),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'No Android Virtual Devices Found',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Create your first virtual device without Android Studio.',
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: () => _openCreateAvdDialog(context),
+                            icon: const Icon(Icons.add_rounded, size: 16),
+                            label: const Text('Create Virtual Device'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTheme.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            ),
+                          ),
+                        ],
                       ),
                     )
                   else
@@ -98,6 +198,7 @@ class DevicePanel extends StatelessWidget {
                           onLaunch: () => state.launchAvd(avd.id),
                           onColdBoot: () => state.launchAvd(avd.id, coldBoot: true),
                           onWipeData: () => state.launchAvd(avd.id, wipeData: true),
+                          onDelete: () => _confirmDeleteAvd(context, avd.id),
                         );
                       }).toList(),
                     ),

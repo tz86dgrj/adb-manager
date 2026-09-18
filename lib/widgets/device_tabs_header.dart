@@ -23,76 +23,114 @@ class DeviceTabsHeader extends StatelessWidget {
         children: [
           // Device Tabs
           Expanded(
-            child: devices.isEmpty
-                ? const Padding(
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                ...devices.map((dev) {
+                  final isSelected = dev.id == selectedId;
+                  final isRunning = state.isDeviceRunning(dev.id);
+                  final isStarting = state.isDeviceStarting(dev.id);
+
+                  return InkWell(
+                    onTap: () => state.selectDevice(dev.id),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.surface : Colors.transparent,
+                        border: Border(
+                          right: const BorderSide(color: AppTheme.border),
+                          top: isSelected
+                              ? const BorderSide(color: AppTheme.primary, width: 2.5)
+                              : BorderSide.none,
+                          bottom: isSelected ? BorderSide.none : const BorderSide(color: AppTheme.border),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.phone_android_rounded,
+                            size: 16,
+                            color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            dev.displayName,
+                            style: TextStyle(
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 12,
+                              color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isRunning
+                                  ? AppTheme.success
+                                  : isStarting
+                                      ? AppTheme.warning
+                                      : AppTheme.borderSubtle,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+
+                // Dedicated System & Builds Tab
+                InkWell(
+                  onTap: () => state.selectDevice(null),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: selectedId == null ? AppTheme.surface : Colors.transparent,
+                      border: Border(
+                        right: const BorderSide(color: AppTheme.border),
+                        top: selectedId == null
+                            ? const BorderSide(color: AppTheme.primary, width: 2.5)
+                            : BorderSide.none,
+                        bottom: selectedId == null ? BorderSide.none : const BorderSide(color: AppTheme.border),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.terminal_rounded,
+                          size: 16,
+                          color: selectedId == null ? AppTheme.primary : AppTheme.textSecondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'System & Builds',
+                          style: TextStyle(
+                            fontWeight: selectedId == null ? FontWeight.w700 : FontWeight.w500,
+                            fontSize: 12,
+                            color: selectedId == null ? AppTheme.textPrimary : AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                if (devices.isEmpty)
+                  const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'No connected devices. Start an AVD from the sidebar.',
-                        style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                        'No devices connected. Start an AVD from the sidebar.',
+                        style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
                       ),
                     ),
-                  )
-                : ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: devices.length,
-                    itemBuilder: (context, index) {
-                      final dev = devices[index];
-                      final isSelected = dev.id == selectedId;
-                      final isRunning = state.isDeviceRunning(dev.id);
-                      final isStarting = state.isDeviceStarting(dev.id);
-
-                      return InkWell(
-                        onTap: () => state.selectDevice(dev.id),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.surface : Colors.transparent,
-                            border: Border(
-                              right: const BorderSide(color: AppTheme.border),
-                              top: isSelected
-                                  ? const BorderSide(color: AppTheme.primary, width: 2.5)
-                                  : BorderSide.none,
-                              bottom: isSelected ? BorderSide.none : const BorderSide(color: AppTheme.border),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.phone_android_rounded,
-                                size: 16,
-                                color: isSelected ? AppTheme.primary : AppTheme.textSecondary,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                dev.displayName,
-                                style: TextStyle(
-                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                  fontSize: 12,
-                                  color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                width: 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isRunning
-                                      ? AppTheme.success
-                                      : isStarting
-                                          ? AppTheme.warning
-                                          : AppTheme.borderSubtle,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
                   ),
+              ],
+            ),
           ),
 
           // Broadcast Actions & Gradle Fixer

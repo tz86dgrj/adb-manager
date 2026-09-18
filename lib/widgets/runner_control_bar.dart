@@ -224,8 +224,8 @@ class _RunnerControlBarState extends State<RunnerControlBar> {
       case SessionRunState.stopped:
         bg = AppTheme.surfaceMuted;
         fg = AppTheme.textSecondary;
-        label = 'IDLE';
-        icon = Icons.stop_circle_outlined;
+        label = deviceId != null ? 'IDLE' : 'SYSTEM & BUILDS';
+        icon = deviceId != null ? Icons.stop_circle_outlined : Icons.terminal_rounded;
         break;
       case SessionRunState.starting:
         bg = AppTheme.warningSubtle;

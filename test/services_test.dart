@@ -3,12 +3,14 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:adb_manager/models/adb_device.dart';
 import 'package:adb_manager/models/apk_build_options.dart';
+import 'package:adb_manager/models/avd_creation_options.dart';
 import 'package:adb_manager/models/avd_info.dart';
 import 'package:adb_manager/models/device_session.dart';
 import 'package:adb_manager/models/launch_config.dart';
 import 'package:adb_manager/models/log_entry.dart';
 import 'package:adb_manager/services/agent_bridge_service.dart';
 import 'package:adb_manager/services/apk_build_service.dart';
+import 'package:adb_manager/services/avd_service.dart';
 import 'package:adb_manager/services/sdk_service.dart';
 
 void main() {
@@ -39,15 +41,37 @@ void main() {
       expect(dev.displayName, 'sdk gphone16k x86 64');
     });
 
-    test('LogEntry formatting', () {
+    test('LogEntry formatting and deviceId tagging', () {
       final entry = LogEntry(
         message: 'Hot Reload performed in 250ms',
         level: LogLevel.success,
         source: 'flutter',
+        deviceId: 'emulator-5554',
       );
 
       expect(entry.level, LogLevel.success);
       expect(entry.message, contains('Hot Reload'));
+      expect(entry.deviceId, 'emulator-5554');
+      expect(entry.toString(), contains('[emulator-5554]'));
+    });
+
+    test('DeviceSession per-device log isolation', () {
+      final sessionA = DeviceSession(deviceId: 'emulator-5554');
+      final sessionB = DeviceSession(deviceId: 'emulator-5556');
+
+      sessionA.addLog(LogEntry(message: 'App started on 5554', deviceId: 'emulator-5554'));
+      expect(sessionA.logs.length, 1);
+      expect(sessionB.logs.isEmpty, isTrue);
+
+      sessionB.addLog(LogEntry(message: 'App started on 5556', deviceId: 'emulator-5556'));
+      expect(sessionA.logs.length, 1);
+      expect(sessionB.logs.length, 1);
+      expect(sessionA.logs.first.message, 'App started on 5554');
+      expect(sessionB.logs.first.message, 'App started on 5556');
+
+      sessionA.clearLogs();
+      expect(sessionA.logs.isEmpty, isTrue);
+      expect(sessionB.logs.length, 1);
     });
 
     test('LaunchConfig serialization and dart-define-from-file support', () {
@@ -117,6 +141,27 @@ void main() {
       expect(result.formattedFileSize, '25.00 MB');
     });
 
+    test('DeviceProfile, SystemImageInfo and AvdCreationResult properties', () {
+      const profile = DeviceProfile(id: 'pixel_7', name: 'Pixel 7', oem: 'Google');
+      expect(profile.id, 'pixel_7');
+      expect(profile.name, 'Pixel 7');
+      expect(DeviceProfile.defaults, isNotEmpty);
+
+      const sysImg = SystemImageInfo(
+        packagePath: 'system-images;android-34;google_apis;x86_64',
+        displayName: 'Android 34 (Google APIs - x86_64)',
+        apiLevel: '34',
+        abi: 'x86_64',
+        tag: 'google_apis',
+      );
+      expect(sysImg.apiLevel, '34');
+      expect(sysImg.abi, 'x86_64');
+
+      const res = AvdCreationResult(success: true, message: 'Created', avdName: 'Test_AVD');
+      expect(res.success, isTrue);
+      expect(res.avdName, 'Test_AVD');
+    });
+
     test('ApkBuildService getCliArgs constructs correct flutter build commands', () {
       final sdkService = SdkService();
       final builder = ApkBuildService(sdkService);
@@ -168,6 +213,21 @@ void main() {
       expect(sdkService.emulatorExe, isNotNull);
       expect(sdkService.flutterExe, isNotNull);
       expect(sdkService.isReady, isTrue);
+    });
+  });
+
+  group('AvdService Tests', () {
+    test('Scans installed system images and device profiles', () async {
+      final sdkService = SdkService();
+      await sdkService.initialize();
+      final avdService = AvdService(sdkService);
+
+      final profiles = await avdService.listDeviceProfiles();
+      expect(profiles, isNotEmpty);
+
+      final images = await avdService.listInstalledSystemImages();
+      expect(images, isNotEmpty);
+      expect(images.first.packagePath, contains('system-images;'));
     });
   });
 

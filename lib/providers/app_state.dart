@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/adb_device.dart';
 import '../models/apk_build_options.dart';
+import '../models/avd_creation_options.dart';
 import '../models/avd_info.dart';
 import '../models/device_session.dart';
 import '../models/launch_config.dart';
@@ -336,6 +337,48 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<AvdCreationResult> createAvd({
+    required String name,
+    required String deviceProfileId,
+    required String systemImagePackage,
+    int ramMb = 2048,
+    int internalStorageMb = 6144,
+  }) async {
+    _addLog(LogEntry(
+      message: 'Creating virtual device "$name" ($deviceProfileId)...',
+      level: LogLevel.system,
+    ));
+
+    final result = await avdService.createAvd(
+      name: name,
+      deviceProfileId: deviceProfileId,
+      systemImagePackage: systemImagePackage,
+      ramMb: ramMb,
+      internalStorageMb: internalStorageMb,
+    );
+
+    if (result.success) {
+      _addLog(LogEntry(message: result.message, level: LogLevel.system));
+      await refreshDevices();
+    } else {
+      _addLog(LogEntry(message: result.message, level: LogLevel.error));
+    }
+
+    return result;
+  }
+
+  Future<bool> deleteAvd(String avdName) async {
+    _addLog(LogEntry(message: 'Deleting AVD "$avdName"...', level: LogLevel.system));
+    final ok = await avdService.deleteAvd(avdName);
+    if (ok) {
+      _addLog(LogEntry(message: 'Deleted AVD "$avdName" successfully.', level: LogLevel.system));
+      await refreshDevices();
+    } else {
+      _addLog(LogEntry(message: 'Failed to delete AVD "$avdName".', level: LogLevel.error));
+    }
+    return ok;
+  }
+
   Future<void> killSelectedDevice() async {
     if (_selectedDeviceId == null) return;
     _addLog(LogEntry(message: 'Shutting down device $_selectedDeviceId...', level: LogLevel.system));
@@ -408,32 +451,75 @@ class AppState extends ChangeNotifier {
       _addLog(LogEntry(message: 'Need active device and detected package name to clear data.', level: LogLevel.warning));
       return;
     }
-    _addLog(LogEntry(message: 'Clearing app data for $_detectedPackageName on $_selectedDeviceId...', level: LogLevel.system));
-    final ok = await adbService.clearAppData(_selectedDeviceId!, _detectedPackageName!);
+    final dev = _selectedDeviceId!;
+    _addLog(LogEntry(
+      message: 'Clearing app data for $_detectedPackageName on $dev...',
+      level: LogLevel.system,
+      source: 'adb',
+      deviceId: dev,
+    ));
+    final ok = await adbService.clearAppData(dev, _detectedPackageName!);
     if (ok) {
-      _addLog(LogEntry(message: '✅ Successfully cleared app data for $_detectedPackageName', level: LogLevel.success));
+      _addLog(LogEntry(
+        message: '✅ Successfully cleared app data for $_detectedPackageName',
+        level: LogLevel.success,
+        source: 'adb',
+        deviceId: dev,
+      ));
     } else {
-      _addLog(LogEntry(message: 'Failed to clear app data for $_detectedPackageName', level: LogLevel.error));
+      _addLog(LogEntry(
+        message: 'Failed to clear app data for $_detectedPackageName',
+        level: LogLevel.error,
+        source: 'adb',
+        deviceId: dev,
+      ));
     }
   }
 
   Future<void> toggleDeviceDarkMode(bool dark) async {
     if (_selectedDeviceId == null) return;
-    _addLog(LogEntry(message: 'Setting UI mode on $_selectedDeviceId to ${dark ? "Dark" : "Light"}...', level: LogLevel.system));
-    final ok = await adbService.toggleUiMode(_selectedDeviceId!, dark);
+    final dev = _selectedDeviceId!;
+    _addLog(LogEntry(
+      message: 'Setting UI mode on $dev to ${dark ? "Dark" : "Light"}...',
+      level: LogLevel.system,
+      source: 'adb',
+      deviceId: dev,
+    ));
+    final ok = await adbService.toggleUiMode(dev, dark);
     if (ok) {
-      _addLog(LogEntry(message: '✅ UI Mode updated to ${dark ? "Dark" : "Light"}', level: LogLevel.success));
+      _addLog(LogEntry(
+        message: '✅ UI Mode updated to ${dark ? "Dark" : "Light"}',
+        level: LogLevel.success,
+        source: 'adb',
+        deviceId: dev,
+      ));
     }
   }
 
   Future<void> captureScreenshot() async {
     if (_selectedDeviceId == null) return;
-    _addLog(LogEntry(message: 'Capturing screenshot from $_selectedDeviceId...', level: LogLevel.system));
-    final path = await adbService.captureScreenshot(_selectedDeviceId!);
+    final dev = _selectedDeviceId!;
+    _addLog(LogEntry(
+      message: 'Capturing screenshot from $dev...',
+      level: LogLevel.system,
+      source: 'adb',
+      deviceId: dev,
+    ));
+    final path = await adbService.captureScreenshot(dev);
     if (path != null) {
-      _addLog(LogEntry(message: '📸 Screenshot saved: $path', level: LogLevel.success));
+      _addLog(LogEntry(
+        message: '📸 Screenshot saved: $path',
+        level: LogLevel.success,
+        source: 'adb',
+        deviceId: dev,
+      ));
     } else {
-      _addLog(LogEntry(message: 'Failed to capture screenshot', level: LogLevel.error));
+      _addLog(LogEntry(
+        message: 'Failed to capture screenshot',
+        level: LogLevel.error,
+        source: 'adb',
+        deviceId: dev,
+      ));
     }
   }
 
@@ -443,12 +529,27 @@ class AppState extends ChangeNotifier {
       _addLog(LogEntry(message: 'No device selected to install APK.', level: LogLevel.warning));
       return false;
     }
-    _addLog(LogEntry(message: '📲 Installing APK on $dev: $apkPath...', level: LogLevel.system));
+    _addLog(LogEntry(
+      message: '📲 Installing APK on $dev: $apkPath...',
+      level: LogLevel.system,
+      source: 'adb',
+      deviceId: dev,
+    ));
     final ok = await adbService.installApk(dev, apkPath);
     if (ok) {
-      _addLog(LogEntry(message: '✅ APK installed successfully on $dev', level: LogLevel.success));
+      _addLog(LogEntry(
+        message: '✅ APK installed successfully on $dev',
+        level: LogLevel.success,
+        source: 'adb',
+        deviceId: dev,
+      ));
     } else {
-      _addLog(LogEntry(message: '❌ Failed to install APK on $dev', level: LogLevel.error));
+      _addLog(LogEntry(
+        message: '❌ Failed to install APK on $dev',
+        level: LogLevel.error,
+        source: 'adb',
+        deviceId: dev,
+      ));
     }
     return ok;
   }
@@ -459,12 +560,27 @@ class AppState extends ChangeNotifier {
       _addLog(LogEntry(message: 'No device selected to launch deep link.', level: LogLevel.warning));
       return false;
     }
-    _addLog(LogEntry(message: '🔗 Dispatching deep link on $dev: $url', level: LogLevel.system));
+    _addLog(LogEntry(
+      message: '🔗 Dispatching deep link on $dev: $url',
+      level: LogLevel.system,
+      source: 'adb',
+      deviceId: dev,
+    ));
     final ok = await adbService.launchDeepLink(dev, url);
     if (ok) {
-      _addLog(LogEntry(message: '✅ Deep link intent dispatched to $dev', level: LogLevel.success));
+      _addLog(LogEntry(
+        message: '✅ Deep link intent dispatched to $dev',
+        level: LogLevel.success,
+        source: 'adb',
+        deviceId: dev,
+      ));
     } else {
-      _addLog(LogEntry(message: '❌ Failed to dispatch deep link on $dev', level: LogLevel.error));
+      _addLog(LogEntry(
+        message: '❌ Failed to dispatch deep link on $dev',
+        level: LogLevel.error,
+        source: 'adb',
+        deviceId: dev,
+      ));
     }
     return ok;
   }
@@ -475,20 +591,39 @@ class AppState extends ChangeNotifier {
       _addLog(LogEntry(message: 'No device selected to send clipboard.', level: LogLevel.warning));
       return false;
     }
-    _addLog(LogEntry(message: '📋 Sending clipboard text to $dev...', level: LogLevel.system));
+    _addLog(LogEntry(
+      message: '📋 Sending clipboard text to $dev...',
+      level: LogLevel.system,
+      source: 'adb',
+      deviceId: dev,
+    ));
     final ok = await adbService.sendClipboardText(dev, text);
     if (ok) {
-      _addLog(LogEntry(message: '✅ Clipboard text injected into $dev', level: LogLevel.success));
+      _addLog(LogEntry(
+        message: '✅ Clipboard text injected into $dev',
+        level: LogLevel.success,
+        source: 'adb',
+        deviceId: dev,
+      ));
     } else {
-      _addLog(LogEntry(message: '❌ Failed to inject text into $dev', level: LogLevel.error));
+      _addLog(LogEntry(
+        message: '❌ Failed to inject text into $dev',
+        level: LogLevel.error,
+        source: 'adb',
+        deviceId: dev,
+      ));
     }
     return ok;
   }
 
-  void _addLog(LogEntry entry) {
+  void _addLog(LogEntry entry, {String? targetDeviceId}) {
     _logs.add(entry);
     if (_logs.length > 1500) {
       _logs.removeRange(0, 200);
+    }
+    final devId = targetDeviceId ?? entry.deviceId;
+    if (devId != null && entry.source != 'flutter') {
+      runnerService.getOrCreateSession(devId).addLog(entry);
     }
     notifyListeners();
   }
@@ -508,8 +643,27 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void clearLogs() {
+  void clearDeviceLogs(String deviceId) {
+    runnerService.getOrCreateSession(deviceId).clearLogs();
+    _logs.removeWhere((l) => l.deviceId == deviceId);
+    notifyListeners();
+  }
+
+  void clearLogs({String? deviceId}) {
+    final target = deviceId ?? _selectedDeviceId;
+    if (target != null) {
+      clearDeviceLogs(target);
+    } else {
+      _logs.clear();
+      notifyListeners();
+    }
+  }
+
+  void clearAllLogs() {
     _logs.clear();
+    for (final s in runnerService.sessions.values) {
+      s.clearLogs();
+    }
     notifyListeners();
   }
 

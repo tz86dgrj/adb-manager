@@ -145,6 +145,14 @@ graph TD
 - **Advanced Boot Modes**:
   - **Cold Boot**: Spawns with `-no-snapshot-load` to bypass corrupt snapshot states.
   - **Wipe Data & Boot**: Spawns with `-wipe-data` to restore factory emulator state.
+- **Native AVD Creation (`[+ New AVD]`)**:
+  - Direct creation modal powered by `avdmanager create avd` without needing Android Studio.
+  - Automatic Java/JBR environment detection (`C:\Program Files\Android\Android Studio\jbr\bin\java.exe` on Windows, `/Applications/Android Studio.app/Contents/jbr/Contents/Home` on macOS).
+  - Hardware profile selection (*Pixel 7 Pro*, *Pixel 7*, *Pixel 6*, *Medium Phone*, *Resizable Foldable*, *Tablet 10"*).
+  - Scans installed system images directly from the Android SDK (`Android 34`, `Android 36`, `Android 37`, etc.).
+  - Configurable RAM allocation (`2 GB`, `4 GB`, `8 GB`) and internal storage (`4 GB` to `12 GB`).
+- **AVD Deletion**:
+  - Delete virtual devices directly via the options popup menu (`avdmanager delete avd -n <name>`) with confirmation dialog.
 - **Emulator Termination**:
   Sends `adb -s <dev> emu kill` to gracefully shut down virtual devices.
 

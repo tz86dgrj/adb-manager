@@ -46,6 +46,7 @@ class FlutterRunnerService {
       message: message,
       level: level,
       source: source,
+      deviceId: session.deviceId,
     );
     session.addLog(entry);
     _logController.add(entry);

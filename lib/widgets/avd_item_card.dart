@@ -8,6 +8,7 @@ class AvdItemCard extends StatelessWidget {
   final VoidCallback onLaunch;
   final VoidCallback onColdBoot;
   final VoidCallback onWipeData;
+  final VoidCallback? onDelete;
 
   const AvdItemCard({
     super.key,
@@ -15,6 +16,7 @@ class AvdItemCard extends StatelessWidget {
     required this.onLaunch,
     required this.onColdBoot,
     required this.onWipeData,
+    this.onDelete,
   });
 
   @override
@@ -107,6 +109,8 @@ class AvdItemCard extends StatelessWidget {
                 onColdBoot();
               } else if (val == 'wipe') {
                 onWipeData();
+              } else if (val == 'delete' && onDelete != null) {
+                onDelete!();
               }
             },
             itemBuilder: (ctx) => [
@@ -124,12 +128,25 @@ class AvdItemCard extends StatelessWidget {
                 value: 'wipe',
                 child: Row(
                   children: [
-                    Icon(Icons.cleaning_services_rounded, size: 16, color: AppTheme.error),
+                    Icon(Icons.cleaning_services_rounded, size: 16, color: AppTheme.warning),
                     SizedBox(width: 8),
-                    Text('Wipe Data & Boot', style: TextStyle(fontSize: 12, color: AppTheme.error)),
+                    Text('Wipe Data & Boot', style: TextStyle(fontSize: 12, color: AppTheme.warning)),
                   ],
                 ),
               ),
+              if (onDelete != null) ...[
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_forever_rounded, size: 16, color: AppTheme.error),
+                      SizedBox(width: 8),
+                      Text('Delete AVD', style: TextStyle(fontSize: 12, color: AppTheme.error)),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ],

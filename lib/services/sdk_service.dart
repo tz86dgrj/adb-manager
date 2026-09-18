@@ -6,16 +6,22 @@ class SdkService {
   String? _emulatorExe;
   String? _adbExe;
   String? _flutterExe;
+  String? _avdManagerExe;
+  String? _javaHome;
 
   String? get sdkPath => _sdkPath;
   String? get emulatorExe => _emulatorExe;
   String? get adbExe => _adbExe;
   String? get flutterExe => _flutterExe;
+  String? get avdManagerExe => _avdManagerExe;
+  String? get javaHome => _javaHome;
 
   bool get isReady => _adbExe != null && _emulatorExe != null && _flutterExe != null;
 
   Future<void> initialize() async {
     await _detectAndroidSdk();
+    await _detectJava();
+    await _detectAvdManager();
     await _detectFlutter();
   }
 
@@ -113,6 +119,87 @@ class SdkService {
         return;
       }
     }
+  }
+
+  Future<void> _detectJava() async {
+    final env = Platform.environment;
+    if (env.containsKey('JAVA_HOME') && env['JAVA_HOME']!.isNotEmpty) {
+      final javaExe = File(p.join(env['JAVA_HOME']!, 'bin', Platform.isWindows ? 'java.exe' : 'java'));
+      if (await javaExe.exists()) {
+        _javaHome = env['JAVA_HOME'];
+        return;
+      }
+    }
+
+    final candidates = <String>[];
+    if (Platform.isWindows) {
+      candidates.addAll([
+        r'C:\Program Files\Android\Android Studio\jbr',
+        r'C:\Program Files\Android\Android Studio\jre',
+      ]);
+      final javaDir = Directory(r'C:\Program Files\Java');
+      if (await javaDir.exists()) {
+        try {
+          await for (final entity in javaDir.list()) {
+            if (entity is Directory) {
+              candidates.add(entity.path);
+            }
+          }
+        } catch (_) {}
+      }
+    } else if (Platform.isMacOS) {
+      candidates.addAll([
+        '/Applications/Android Studio.app/Contents/jbr/Contents/Home',
+        '/Applications/Android Studio.app/Contents/jre/Contents/Home',
+      ]);
+    }
+
+    for (final candidate in candidates) {
+      final javaExe = File(p.join(candidate, 'bin', Platform.isWindows ? 'java.exe' : 'java'));
+      if (await javaExe.exists()) {
+        _javaHome = candidate;
+        return;
+      }
+    }
+
+    final pathJava = await _findInPath(Platform.isWindows ? 'java.exe' : 'java');
+    if (pathJava != null) {
+      _javaHome = p.dirname(p.dirname(pathJava));
+    }
+  }
+
+  Future<void> _detectAvdManager() async {
+    final exeName = Platform.isWindows ? 'avdmanager.bat' : 'avdmanager';
+
+    if (_sdkPath != null) {
+      final cmdlineToolsDir = Directory(p.join(_sdkPath!, 'cmdline-tools'));
+      if (await cmdlineToolsDir.exists()) {
+        try {
+          final latestExe = File(p.join(cmdlineToolsDir.path, 'latest', 'bin', exeName));
+          if (await latestExe.exists()) {
+            _avdManagerExe = latestExe.path;
+            return;
+          }
+          await for (final entity in cmdlineToolsDir.list()) {
+            if (entity is Directory) {
+              final exe = File(p.join(entity.path, 'bin', exeName));
+              if (await exe.exists()) {
+                _avdManagerExe = exe.path;
+                return;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      final legacyExe = File(p.join(_sdkPath!, 'tools', 'bin', exeName));
+      if (await legacyExe.exists()) {
+        _avdManagerExe = legacyExe.path;
+        return;
+      }
+    }
+
+    _avdManagerExe ??= await _findInPath(exeName);
   }
 
   Future<String?> _findInPath(String binaryName) async {
