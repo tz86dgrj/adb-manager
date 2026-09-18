@@ -182,6 +182,8 @@ class _ApkBuilderDialogState extends State<ApkBuilderDialog> {
   void _openInExplorer(String filePath) {
     if (Platform.isWindows) {
       Process.run('explorer.exe', ['/select,', filePath]);
+    } else if (Platform.isMacOS) {
+      Process.run('open', ['-R', filePath]);
     } else {
       final dir = p.dirname(filePath);
       Process.run('open', [dir]);

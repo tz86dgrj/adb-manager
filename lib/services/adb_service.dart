@@ -136,8 +136,9 @@ class AdbService {
     if (adbExe == null) return null;
 
     try {
-      final picturesDir = Platform.environment['USERPROFILE'] != null
-          ? p.join(Platform.environment['USERPROFILE']!, 'Pictures')
+      final homeDir = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+      final picturesDir = homeDir != null
+          ? p.join(homeDir, 'Pictures')
           : Directory.current.path;
       final fileName = 'screenshot_${DateTime.now().millisecondsSinceEpoch}.png';
       final targetPath = p.join(picturesDir, fileName);
@@ -211,8 +212,10 @@ class AdbService {
   Future<String> fixGradleLocks(String projectPath) async {
     final report = <String>[];
     try {
-      // 1. Stop Gradle daemons via gradlew.bat --stop
-      final gradlew = File(p.join(projectPath, 'android', 'gradlew.bat'));
+      // 1. Stop Gradle daemons via gradlew/gradlew.bat --stop
+      final gradlewBat = File(p.join(projectPath, 'android', 'gradlew.bat'));
+      final gradlewSh = File(p.join(projectPath, 'android', 'gradlew'));
+      final gradlew = Platform.isWindows ? gradlewBat : (await gradlewSh.exists() ? gradlewSh : gradlewBat);
       if (await gradlew.exists()) {
         try {
           final res = await Process.run(
