@@ -22,6 +22,7 @@ An integrated, high-performance **Windows Desktop Application** and **AI Agent B
 5. [Codebase Map & Module Reference](#5-codebase-map--module-reference)
 6. [API & Protocol Reference (Agent Bridge & MCP)](#6-api--protocol-reference-agent-bridge--mcp)
 7. [Verification, Quality Assurance & Performance](#7-verification-quality-assurance--performance)
+8. [Cross-Platform Architecture (Windows & macOS)](#8-cross-platform-architecture-windows--macos)
 
 ---
 
@@ -297,5 +298,38 @@ Starts the application on the active device.
 
 - **Automated Tests**: 10/10 tests passing.
 - **Static Analysis**: 0 issues found.
-- **Release Executable**: `build\windows\x64\runner\Release\adb_manager.exe`.
+- **Release Executable (Windows)**: `build\windows\x64\runner\Release\adb_manager.exe`.
 - **Desktop Shortcut**: `C:\Users\richa\Desktop\ADB Manager.lnk`.
+
+---
+
+## 8. Cross-Platform Architecture (Windows & macOS)
+
+ADB Manager is engineered from a **single, unified Dart codebase** that compiles natively for both **Windows Desktop** (`.exe`) and **macOS Desktop** (`.app`).
+
+### 8.1 Architectural Parity Matrix
+
+| Feature / Subsystem | 🪟 Windows Desktop | 🍎 macOS Desktop | Implementation Details |
+|---|---|---|---|
+| **Target Output** | `adb_manager.exe` | `adb_manager.app` | Built from native `windows/` (C++) and `macos/` (Swift) runners. |
+| **Android SDK Location** | `%LOCALAPPDATA%\Android\Sdk` | `~/Library/Android/sdk` | Dynamically resolved by `SdkService` using `Platform.isMacOS` and `HOME`. |
+| **Tools Executable Names** | `adb.exe`, `emulator.exe`, `flutter.bat` | `adb`, `emulator`, `flutter` | Binary extensions and PATH resolution handled via `where.exe` vs. `which`. |
+| **Flutter CLI Discovery** | Standard Windows drive paths (`C:\src\flutter`) | Homebrew (`/opt/homebrew/bin/flutter`), `/usr/local/bin`, `~/development/flutter` | Multi-path fallback cascade in `SdkService._detectFlutter()`. |
+| **App Sandboxing & Child Processes** | Unsandboxed Win32 process model | App Sandbox disabled (`<false/>`) with network client/server entitlements | `DebugProfile.entitlements` and `Release.entitlements` allow child process spawning (`adb`, `emulator`). |
+| **Agent Bridge Loopback Server** | `http://127.0.0.1:45678` | `http://127.0.0.1:45678` | POSIX-compliant loopback socket via Dart `HttpServer.bind(InternetAddress.loopbackIPv4, 45678)`. |
+| **Finder / Explorer Integration** | `Process.run('explorer.exe', ['/select,', path])` | `Process.run('open', ['-R', path])` | Native system file manager reveal upon APK/AAB build completion. |
+| **Gradle Daemon Lock Fixer** | `gradlew.bat --stop` | `./gradlew --stop` | Detects shell script on macOS and `.bat` on Windows. |
+| **Screenshot Export Directory** | `%USERPROFILE%\Pictures` | `~/Pictures` | Uses `HOME` environment variable fallback. |
+
+### 8.2 Building & Running on macOS
+
+```bash
+# Run in development mode
+flutter run -d macos
+
+# Build production standalone .app bundle
+flutter build macos --release
+```
+The compiled bundle is located at:
+`build/macos/Build/Products/Release/adb_manager.app`
+
