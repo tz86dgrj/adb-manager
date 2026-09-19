@@ -17,7 +17,6 @@ class _CreateAvdDialogState extends State<CreateAvdDialog> {
   final _nameController = TextEditingController();
 
   bool _isLoading = true;
-  bool _isCreating = false;
   String? _errorMessage;
 
   List<DeviceProfile> _devices = [];
@@ -92,44 +91,60 @@ class _CreateAvdDialogState extends State<CreateAvdDialog> {
     _nameController.text = '${sanitizedDev}_$apiTag';
   }
 
-  Future<void> _handleCreate() async {
+  void _handleCreate() {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedDeviceId == null || _selectedImagePackage == null) {
       setState(() => _errorMessage = 'Please select a device profile and system image.');
       return;
     }
 
-    setState(() {
-      _isCreating = true;
-      _errorMessage = null;
-    });
-
     final name = _nameController.text.trim();
-    final result = await widget.state.createAvd(
+    final deviceObj = _devices.firstWhere(
+      (d) => d.id == _selectedDeviceId,
+      orElse: () => DeviceProfile(id: _selectedDeviceId!, name: _selectedDeviceId!),
+    );
+    final imgObj = _systemImages.firstWhere(
+      (i) => i.packagePath == _selectedImagePackage,
+      orElse: () => SystemImageInfo(
+        packagePath: _selectedImagePackage!,
+        displayName: _selectedImagePackage!,
+        apiLevel: '',
+        abi: '',
+        tag: '',
+      ),
+    );
+
+    final details = '${deviceObj.name} • ${imgObj.displayName} • ${_selectedRamMb ~/ 1024} GB RAM';
+
+    widget.state.startBackgroundAvdCreation(
       name: name,
       deviceProfileId: _selectedDeviceId!,
       systemImagePackage: _selectedImagePackage!,
+      details: details,
       ramMb: _selectedRamMb,
       internalStorageMb: _selectedStorageMb,
     );
 
-    if (!mounted) return;
+    Navigator.of(context).pop();
 
-    if (result.success) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Virtual Device "$name" created successfully!'),
-          backgroundColor: AppTheme.success,
-          behavior: SnackBarBehavior.floating,
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 10),
+            Text('Creating "$name" in the background...'),
+          ],
         ),
-      );
-    } else {
-      setState(() {
-        _isCreating = false;
-        _errorMessage = result.message;
-      });
-    }
+        backgroundColor: AppTheme.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -182,7 +197,7 @@ class _CreateAvdDialogState extends State<CreateAvdDialog> {
                     ),
                   ),
                   IconButton(
-                    onPressed: _isCreating ? null : () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded, size: 18),
                     visualDensity: VisualDensity.compact,
                     color: AppTheme.textSecondary,
@@ -248,7 +263,6 @@ class _CreateAvdDialogState extends State<CreateAvdDialog> {
                             const SizedBox(height: 6),
                             TextFormField(
                               controller: _nameController,
-                              enabled: !_isCreating,
                               decoration: const InputDecoration(
                                 hintText: 'e.g. Pixel_7_API34',
                                 prefixIcon: Icon(Icons.edit_rounded, size: 16),
@@ -292,16 +306,14 @@ class _CreateAvdDialogState extends State<CreateAvdDialog> {
                                   ),
                                 );
                               }).toList(),
-                              onChanged: _isCreating
-                                  ? null
-                                  : (val) {
-                                      if (val != null) {
-                                        setState(() {
-                                          _selectedDeviceId = val;
-                                          _updateDefaultName();
-                                        });
-                                      }
-                                    },
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() {
+                                    _selectedDeviceId = val;
+                                    _updateDefaultName();
+                                  });
+                                }
+                              },
                             ),
 
                             const SizedBox(height: 16),
@@ -359,16 +371,14 @@ class _CreateAvdDialogState extends State<CreateAvdDialog> {
                                     ),
                                   );
                                 }).toList(),
-                                onChanged: _isCreating
-                                    ? null
-                                    : (val) {
-                                        if (val != null) {
-                                          setState(() {
-                                            _selectedImagePackage = val;
-                                            _updateDefaultName();
-                                          });
-                                        }
-                                      },
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() {
+                                      _selectedImagePackage = val;
+                                      _updateDefaultName();
+                                    });
+                                  }
+                                },
                               ),
 
                             const SizedBox(height: 16),
@@ -396,7 +406,7 @@ class _CreateAvdDialogState extends State<CreateAvdDialog> {
                                           DropdownMenuItem(value: 4096, child: Text('4096 MB (4 GB - Fast)')),
                                           DropdownMenuItem(value: 8192, child: Text('8192 MB (8 GB)')),
                                         ],
-                                        onChanged: _isCreating ? null : (v) => setState(() => _selectedRamMb = v ?? 4096),
+                                        onChanged: (v) => setState(() => _selectedRamMb = v ?? 4096),
                                       ),
                                     ],
                                   ),
@@ -423,7 +433,7 @@ class _CreateAvdDialogState extends State<CreateAvdDialog> {
                                           DropdownMenuItem(value: 8192, child: Text('8 GB')),
                                           DropdownMenuItem(value: 12288, child: Text('12 GB (Large)')),
                                         ],
-                                        onChanged: _isCreating ? null : (v) => setState(() => _selectedStorageMb = v ?? 6144),
+                                        onChanged: (v) => setState(() => _selectedStorageMb = v ?? 6144),
                                       ),
                                     ],
                                   ),
@@ -447,20 +457,14 @@ class _CreateAvdDialogState extends State<CreateAvdDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OutlinedButton(
-                    onPressed: _isCreating ? null : () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(context).pop(),
                     child: const Text('Cancel'),
                   ),
                   const SizedBox(width: 12),
                   FilledButton.icon(
-                    onPressed: (_isCreating || _isLoading || _systemImages.isEmpty) ? null : _handleCreate,
-                    icon: _isCreating
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.rocket_launch_rounded, size: 16),
-                    label: Text(_isCreating ? 'Creating Device...' : 'Create Virtual Device'),
+                    onPressed: (_isLoading || _systemImages.isEmpty) ? null : _handleCreate,
+                    icon: const Icon(Icons.rocket_launch_rounded, size: 16),
+                    label: const Text('Create in Background'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.primary,
                       foregroundColor: Colors.white,

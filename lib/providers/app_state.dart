@@ -70,6 +70,17 @@ class AppState extends ChangeNotifier {
   bool _autoScroll = true;
   bool get autoScroll => _autoScroll;
 
+  String? _creatingAvdName;
+  String? get creatingAvdName => _creatingAvdName;
+
+  String? _creatingAvdDetails;
+  String? get creatingAvdDetails => _creatingAvdDetails;
+
+  bool get isCreatingAvd => _creatingAvdName != null;
+
+  final StreamController<AvdCreationResult> _avdEventController = StreamController<AvdCreationResult>.broadcast();
+  Stream<AvdCreationResult> get avdEvents => _avdEventController.stream;
+
   Timer? _pollTimer;
   StreamSubscription? _runnerStateSub;
   StreamSubscription? _runnerLogSub;
@@ -335,6 +346,47 @@ class AppState extends ChangeNotifier {
     if (!ok) {
       _addLog(LogEntry(message: 'Failed to launch AVD $avdName', level: LogLevel.error));
     }
+  }
+
+  void startBackgroundAvdCreation({
+    required String name,
+    required String deviceProfileId,
+    required String systemImagePackage,
+    required String details,
+    int ramMb = 2048,
+    int internalStorageMb = 6144,
+  }) {
+    _creatingAvdName = name;
+    _creatingAvdDetails = details;
+    notifyListeners();
+
+    _addLog(LogEntry(
+      message: 'Background creation started for "$name" ($details)...',
+      level: LogLevel.system,
+    ));
+
+    () async {
+      final result = await avdService.createAvd(
+        name: name,
+        deviceProfileId: deviceProfileId,
+        systemImagePackage: systemImagePackage,
+        ramMb: ramMb,
+        internalStorageMb: internalStorageMb,
+      );
+
+      _creatingAvdName = null;
+      _creatingAvdDetails = null;
+      notifyListeners();
+
+      if (result.success) {
+        _addLog(LogEntry(message: result.message, level: LogLevel.success));
+        await refreshDevices();
+      } else {
+        _addLog(LogEntry(message: result.message, level: LogLevel.error));
+      }
+
+      _avdEventController.add(result);
+    }();
   }
 
   Future<AvdCreationResult> createAvd({
@@ -713,6 +765,7 @@ class AppState extends ChangeNotifier {
     _runnerStateSub?.cancel();
     _runnerLogSub?.cancel();
     _buildLogSub?.cancel();
+    _avdEventController.close();
     agentBridgeService.stop();
     runnerService.dispose();
     super.dispose();

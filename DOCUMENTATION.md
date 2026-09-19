@@ -147,6 +147,9 @@ graph TD
   - **Wipe Data & Boot**: Spawns with `-wipe-data` to restore factory emulator state.
 - **Native AVD Creation (`[+ New AVD]`)**:
   - Direct creation modal powered by `avdmanager create avd` without needing Android Studio.
+  - **Non-Blocking Background Creation ("Fire & Background")**: Clicking `[Create in Background]` or dismissing the modal immediately returns the user to the app without UI freezing or modal lock-in.
+  - **Live Animated Placeholder Card**: While `avdmanager` provisions the disk image, an animated placeholder card (`_CreatingAvdPlaceholderCard`) displays in the Virtual Devices sidebar with real-time status and an active progress bar.
+  - **One-Click Quick Boot Toast**: Upon successful creation, a floating notification appears with a `[▶ Start Now]` action button that immediately boots the new emulator.
   - Automatic Java/JBR environment detection (`C:\Program Files\Android\Android Studio\jbr\bin\java.exe` on Windows, `/Applications/Android Studio.app/Contents/jbr/Contents/Home` on macOS).
   - Hardware profile selection (*Pixel 7 Pro*, *Pixel 7*, *Pixel 6*, *Medium Phone*, *Resizable Foldable*, *Tablet 10"*).
   - Scans installed system images directly from the Android SDK (`Android 34`, `Android 36`, `Android 37`, etc.).
